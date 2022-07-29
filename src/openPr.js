@@ -11,6 +11,7 @@ const { runSpawn } = require('./utils/runSpawn')
 const { callApi } = require('./utils/callApi')
 const transformCommitMessage = require('./utils/commitMessage')
 const { logInfo } = require('./log')
+const { attachArtifact } = require('./utils/attachArtifact')
 
 const tpl = fs.readFileSync(path.join(__dirname, 'pr.tpl'), 'utf8')
 
@@ -34,6 +35,7 @@ const getPRBody = (template, { newVersion, draftRelease, inputs, author }) => {
     draftRelease,
     tagsToUpdate: tagsToBeUpdated.join(', '),
     npmPublish: !!inputs['npm-token'],
+    artifactAttached: inputs['artifact-path'],
     syncTags: /true/i.test(inputs['sync-semver-tags']),
     author,
   })
@@ -93,7 +95,6 @@ module.exports = async function ({ context, inputs, packageVersion }) {
       },
       inputs
     )
-    logInfo('** Finished! **')
   } catch (err) {
     let message = `Unable to create the pull request ${err.message}`
     try {
@@ -103,4 +104,24 @@ module.exports = async function ({ context, inputs, packageVersion }) {
     }
     core.setFailed(message)
   }
+
+  // attach artifact
+  const buildDir = inputs['artifact-path']
+
+  if (buildDir) {
+    logInfo('** Attaching artifact **')
+
+    const token = inputs['github-token']
+    const { id: releaseId } = draftRelease
+    try {
+      await attachArtifact(buildDir, releaseId, token)
+    } catch (err) {
+      logInfo(err.message)
+      core.setFailed(err.message)
+    }
+
+    logInfo('** Artifact attached! **')
+  }
+
+  logInfo('** Finished! **')
 }

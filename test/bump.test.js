@@ -8,6 +8,7 @@ const clone = require('lodash.clonedeep')
 
 const runSpawnAction = require('../src/utils/runSpawn')
 const callApiAction = require('../src/utils/callApi')
+const attachArtifactAction = require('../src/utils/attachArtifact')
 const { PR_TITLE_PREFIX } = require('../src/const')
 
 const TEST_VERSION = 'v3.1.1'
@@ -19,9 +20,13 @@ function setup() {
   const callApiStub = sinon
     .stub(callApiAction, 'callApi')
     .resolves({ data: {} })
+  const attachArtifactStub = sinon
+    .stub(attachArtifactAction, 'attachArtifact')
+    .returns({})
 
   const openPr = proxyquire('../src/openPr', {
     './utils/runSpawn': utilStub,
+    './utils/attachArtifact': attachArtifactStub,
     '@actions/core': coreStub,
   })
 
@@ -32,6 +37,7 @@ function setup() {
       runSpawnStub,
       callApiStub,
       coreStub,
+      attachArtifactStub,
     },
   }
 }
@@ -180,6 +186,11 @@ tap.test('should call the PR endpoint with a new version', async () => {
           '- No major or minor tags will be updated as configured\n' +
           '\n' +
           '\n' +
+          '#### Artifacts\n' +
+          '\n' +
+          '- No artifacts will be attached to the release\n' +
+          '\n' +
+          '\n' +
           '#### If you close the PR\n' +
           '\n' +
           '- The new draft release will be deleted and nothing will change\n' +
@@ -233,6 +244,11 @@ tap.test(
             '\n' +
             '\n' +
             '- No major or minor tags will be updated as configured\n' +
+            '\n' +
+            '\n' +
+            '#### Artifacts\n' +
+            '\n' +
+            '- No artifacts will be attached to the release\n' +
             '\n' +
             '\n' +
             '#### If you close the PR\n' +
@@ -291,6 +307,11 @@ tap.test(
             '- No major or minor tags will be updated as configured\n' +
             '\n' +
             '\n' +
+            '#### Artifacts\n' +
+            '\n' +
+            '- No artifacts will be attached to the release\n' +
+            '\n' +
+            '\n' +
             '#### If you close the PR\n' +
             '\n' +
             '- The new draft release will be deleted and nothing will change\n' +
@@ -333,3 +354,15 @@ tap.test('Should call core.setFailed if it fails to create a PR', async t => {
   sinon.assert.calledOnce(stubs.coreStub.setFailed)
   t.pass('failed called')
 })
+
+tap.test(
+  'should call attachArtifact if artifact-path input is present',
+  async () => {
+    const { openPr, stubs } = setup()
+    const data = clone(DEFAULT_ACTION_DATA)
+    data.inputs['artifact-path'] = 'dist'
+    await openPr(data)
+
+    sinon.assert.calledOnce(stubs.attachArtifactStub)
+  }
+)
